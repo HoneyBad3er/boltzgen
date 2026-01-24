@@ -1712,6 +1712,7 @@ class YamlDesignParser:
                     msg = f"Misspecified chain in include with missing 'id' for file with path {path}."
                     raise ValueError(msg)
                 chain_id = chain["id"]
+
                 if chain_id not in structure.chains["name"]:
                     msg = f"Specified chain id {chain_id} not in file {path}."
                     raise ValueError(msg)
