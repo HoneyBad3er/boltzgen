@@ -949,9 +949,9 @@ class Boltz(LightningModule):
             try:
                 # confidence model symmetry correction
                 return_dict = get_true_coordinates(
-                    batch,
-                    out,
-                    diffusion_samples=self.training_args.diffusion_samples,
+                    gt_data=batch,
+                    predictions=out,
+                    n_diffusion_samples=self.training_args.diffusion_samples,
                     symmetry_correction=self.training_args.symmetry_correction,
                 )
             except Exception as e:

@@ -94,7 +94,7 @@ def make_histogram(
     return fig
 
 
-def get_best_folding_sample(folded):
+def get_best_folding_sample(folded) -> dict[str, ]:
     confidence = 0.8 * folded["design_to_target_iptm"] + 0.2 * folded["design_ptm"]
     best_idx = np.argmax(confidence)
 
@@ -111,6 +111,7 @@ def get_fold_metrics(
     folded,
     compute_lddts=True,
     prefix="",
+    rmsd_symmetry_correction: bool = False,
 ):
     batch = collate([feat])
     diffusion_samples = batch["coords"].shape[0]
@@ -118,11 +119,12 @@ def get_fold_metrics(
 
     # Compute RMSDs
     rmsd_out = get_true_coordinates(
-        batch=batch,
-        out={"sample_atom_coords": torch.from_numpy(best_sample["coords"])},
-        diffusion_samples=1,
+        gt_data=batch,
+        predictions={"sample_atom_coords": torch.from_numpy(best_sample["coords"])},
+        n_diffusion_samples=1,
         symmetry_correction=False,
         protein_lig_rmsd=True,
+        rmsd_symmetry_correction=rmsd_symmetry_correction,
     )
     true_coords_resolved_mask = rmsd_out["true_coords_resolved_mask"]
 

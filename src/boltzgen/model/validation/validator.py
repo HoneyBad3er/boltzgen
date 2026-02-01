@@ -485,10 +485,10 @@ class Validator(nn.Module):
         # Get true coords
 
         return_dict = get_true_coordinates(
-            batch,
-            out,
-            n_samples,
-            symmetry_correction,
+            gt_data=batch,
+            predictions=out,
+            n_diffusion_samples=n_samples,
+            symmetry_correction=symmetry_correction,
             expand_to_diffusion_samples=expand_to_diffusion_samples,
         )
 
