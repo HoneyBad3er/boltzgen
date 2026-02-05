@@ -692,7 +692,7 @@ class Filter(Task):
             ),
             (
                 "num_design",
-                "design_ipsae" if "design_ipsae" in self.df else "design_iptm",
+                "design_ipsae_min" if "design_ipsae_min" in self.df else "design_iptm",
             ),
             (
                 "num_design",
