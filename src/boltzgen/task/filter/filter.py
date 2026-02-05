@@ -371,13 +371,6 @@ class Filter(Task):
             df["designfolding-filter_rmsd"] = df["designfolding-bb_rmsd"]
         if "min_design_to_target_pae" in df:
             df["neg_min_design_to_target_pae"] = -df["min_design_to_target_pae"]
-        
-        if "design_ipsae_min" in df:
-             pass
-        if "design_to_target_ipsae" in df:
-             pass
-        if "target_to_design_ipsae" in df:
-             pass
 
         if "design_hydrophobicity" in df:
             df["neg_design_hydrophobicity"] = -df["design_hydrophobicity"]
