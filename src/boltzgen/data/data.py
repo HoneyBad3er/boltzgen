@@ -291,7 +291,6 @@ Chain = [
     ("res_idx", np.dtype("i4")),
     ("res_num", np.dtype("i4")),
     ("cyclic_period", np.dtype("i4")),
-    ("symmetric_group", np.dtype("i4")),
 ]
 
 Interface = [
@@ -1216,8 +1215,7 @@ class Structure(NumpySerializable):
                 len(atom_data),
                 0,
                 len(res_data),
-                0,  # cyclic_period
-                0,  # symmetric_group
+                0,
             )
         ]
 
@@ -1524,8 +1522,7 @@ class Structure(NumpySerializable):
                     num_atoms,
                     total_res,
                     len(chain_res_selector),
-                    0,  # cyclic_period
-                    0,  # symmetric_group
+                    0,
                 )
             )
             total_res += len(chain_res_selector)
@@ -2054,7 +2051,6 @@ Token = [
     ("design_ss_mask", np.dtype("?")),
     ("feature_asym_id", np.dtype("i4")),
     ("feature_res_idx", np.dtype("i4")),
-    ("symmetric_group", np.dtype("i4")),
 ]
 
 TokenBond = [

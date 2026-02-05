@@ -711,7 +711,6 @@ def process_token_features(  # noqa: C901, PLR0915, PLR0912
     design_ss_mask = from_numpy(token_data["design_ss_mask"])
     feature_residue_index = from_numpy(token_data["feature_res_idx"]).long()
     feature_asym_id = from_numpy(token_data["feature_asym_id"]).long()
-    symmetric_group = from_numpy(token_data["symmetric_group"]).long()
     token_to_res = from_numpy(data.token_to_res).long()
 
     method = (
@@ -888,7 +887,6 @@ def process_token_features(  # noqa: C901, PLR0915, PLR0912
             design_ss_mask = pad_dim(design_ss_mask, 0, pad_len)
             feature_residue_index = pad_dim(feature_residue_index, 0, pad_len)
             feature_asym_id = pad_dim(feature_asym_id, 0, pad_len)
-            symmetric_group = pad_dim(symmetric_group, 0, pad_len)
             token_to_res = pad_dim(token_to_res, 0, pad_len)
     token_features = {
         "token_index": token_index,
@@ -923,7 +921,6 @@ def process_token_features(  # noqa: C901, PLR0915, PLR0912
         "design_ss_mask": design_ss_mask,
         "feature_residue_index": feature_residue_index,
         "feature_asym_id": feature_asym_id,
-        "symmetric_group": symmetric_group,
         "ligand_affinity_mask": ligand_affinity_mask,
         "token_to_res": token_to_res,
     }

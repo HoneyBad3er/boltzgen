@@ -100,13 +100,6 @@ protocol_configs = {
         "analysis": ["largest_hydrophobic=false", "largest_hydrophobic_refolded=false"],
         "filtering": ["filter_cysteine=true"],
     },
-    "protein-redesign": {
-        # For redesigning/optimizing existing proteins (e.g., symmetric dimers)
-        # where all chains may have designed residues. Skips design_folding and
-        # uses design_mask (not chain_design_mask) for target/template definition.
-        "folding": ["data.design_mask_templates=true"],
-        "analysis": ["use_design_mask_for_target=true"],
-    },
 }
 assert all(
     step_name in step_names for cfg in protocol_configs.values() for step_name in cfg

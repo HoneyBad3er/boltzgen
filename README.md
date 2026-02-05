@@ -145,7 +145,7 @@ When the pipeline completes your output directory will have:
   - `/final_designs_metrics_<budget>.csv` — metrics for the selected final set.
   - `/results_overview.pdf` — plots
 
-# Protocols
+# Protocols 
 
 | Protocol (design-target) | Appropriate for                                                           | Major config differences        |
 |--------------------------|---------------------------------------------------------------------------|------------------------|
@@ -154,7 +154,6 @@ When the pipeline completes your output directory will have:
 | protein-small_molecule   | Design proteins to bind small molecules                                | Includes binding affinity prediction. Includes `design folding` step. |
 | antibody-anything        | Design antibody CDRs      | No Cys are generated in inverse folding. No `design folding` step. Don't compute largest hydrophobic patch. |
 | nanobody-anything        | Design nanobody CDRs      | Same settings as antibody-anything |
-| protein-redesign         | Redesign or optimize existing proteins | No `design folding` step. Uses `design_mask` for target/template definition. |
 
 All configuration parameters can be overridden using the `--config` option; see `boltzgen run --help` or the `Advanced Users` section below for details.
 
@@ -312,71 +311,6 @@ constraints:
       atom1: [S, 11, SG] # connection for a disulfide bond between Cys and Cys in designed peptide
       atom2: [S, 18, SG]
 
-```
-
-## Symmetric complex design
-
-For symmetric complexes (e.g., homo-dimers), the `protein-redesign` protocol correctly handles the case where designed residues appear on multiple chains. Use `symmetric_group` to link chains so they receive the same sampled lengths for variable-length insertions:
-
-```yaml
-entities:
-  - file:
-      path: symmetric_dimer.cif
-      include:
-        - chain:
-            id: A
-            res_index: 100..300
-            symmetric_group: 1  # Link chains A and B for symmetric sampling
-        - chain:
-            id: B
-            res_index: 100..300
-            symmetric_group: 1  # Same group = same sampled insertion length
-
-      # Mark residues to redesign on both chains
-      design:
-        - chain:
-            id: A
-            res_index: 200..210
-        - chain:
-            id: B
-            res_index: 200..210
-
-      # Exclude original residues that will be replaced by insertions
-      exclude:
-        - chain:
-            id: A
-            res_index: 200..210
-        - chain:
-            id: B
-            res_index: 200..210
-
-      # Variable length insertions - both chains get the same sampled length
-      design_insertions:
-        - insertion:
-            id: A
-            res_index: 200
-            num_residues: 10..14  # Variable length: 10-14 residues
-        - insertion:
-            id: B
-            res_index: 200
-            num_residues: 10..14  # Same spec - will get same sampled length
-
-      # Allow designed regions to adopt new structure
-      structure_groups:
-        - group:
-            visibility: 1
-            id: A
-        - group:
-            visibility: 1
-            id: B
-        - group:
-            visibility: 0
-            id: A
-            res_index: 200..210
-        - group:
-            visibility: 0
-            id: B
-            res_index: 200..210
 ```
 
 # Running only specific pipeline steps

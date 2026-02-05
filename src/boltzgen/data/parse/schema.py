@@ -144,7 +144,6 @@ class ParsedChain:
     cyclic_period: int
     sequence: Optional[str] = None
     sampleidx_to_specidx: Optional[np.ndarray] = None
-    symmetric_group: int = 0
 
 
 @dataclass(frozen=True)
@@ -336,7 +335,6 @@ yaml_keys = [
     "leaving_atoms",
     "atom",
     "use_assembly",
-    "symmetric_group",
 ]
 
 
@@ -485,7 +483,6 @@ def parse_polymer(
     components: dict[str, Mol],
     cyclic: bool,
     mol_dir: Path,
-    symmetric_group: int = 0,
 ) -> Optional[ParsedChain]:
     """Process a sequence into a chain object.
 
@@ -633,7 +630,6 @@ def parse_polymer(
         cyclic_period=cyclic_period,
         sequence=raw_sequence,
         sampleidx_to_specidx=sampleidx_to_specidx,
-        symmetric_group=symmetric_group,
     )
 
 
@@ -770,9 +766,6 @@ def parse_entity(item, mols, mol_dir, ligand_id, is_msa_custom, is_msa_auto):
             seq[idx] = code
 
         cyclic = item[entity_type].get("cyclic", False)
-        symmetric_group = item[entity_type].get("symmetric_group", 0)
-        if symmetric_group is None:
-            symmetric_group = 0
 
         # Parse a polymer
         parsed_chain = parse_polymer(
@@ -783,14 +776,10 @@ def parse_entity(item, mols, mol_dir, ligand_id, is_msa_custom, is_msa_auto):
             components=mols,
             cyclic=cyclic,
             mol_dir=mol_dir,
-            symmetric_group=symmetric_group,
         )
 
     # Parse a non-polymer
     elif (entity_type == "ligand") and "ccd" in (item[entity_type]):
-        symmetric_group = item[entity_type].get("symmetric_group", 0)
-        if symmetric_group is None:
-            symmetric_group = 0
         seq = item[entity_type]["ccd"]
         if isinstance(seq, str):
             seq = [seq]
@@ -817,7 +806,6 @@ def parse_entity(item, mols, mol_dir, ligand_id, is_msa_custom, is_msa_auto):
             type=const.chain_type_ids["NONPOLYMER"],
             cyclic_period=0,
             sequence=None,
-            symmetric_group=symmetric_group,
         )
 
         assert not item[entity_type].get("cyclic", False), (
@@ -825,9 +813,6 @@ def parse_entity(item, mols, mol_dir, ligand_id, is_msa_custom, is_msa_auto):
         )
 
     elif (entity_type == "ligand") and ("smiles" in item[entity_type]):
-        symmetric_group = item[entity_type].get("symmetric_group", 0)
-        if symmetric_group is None:
-            symmetric_group = 0
         seq = item[entity_type]["smiles"]
         mol = AllChem.MolFromSmiles(seq)
         mol = AllChem.AddHs(mol)
@@ -863,7 +848,6 @@ def parse_entity(item, mols, mol_dir, ligand_id, is_msa_custom, is_msa_auto):
             type=const.chain_type_ids["NONPOLYMER"],
             cyclic_period=0,
             sequence=None,
-            symmetric_group=symmetric_group,
         )
 
         assert not item[entity_type].get("cyclic", False), (
@@ -1276,7 +1260,6 @@ class YamlDesignParser:
                                 res_idx,
                                 res_num,
                                 chain.cyclic_period,
-                                chain.symmetric_group,
                             )
                         )
                         chain_to_idx[chain_name] = asym_id
@@ -1422,16 +1405,11 @@ class YamlDesignParser:
                         fbind_types,
                         fss_type,
                         file_chain_to_msa,
-                        file_chain_symmetric_group,
                         fuse_info,
                         new_extra_mols,
                         file_msa_flag,
                         ligand_id,
                     ) = self.parse_file(item, mols, mol_dir, ligand_id, base_file_path)
-                    # Apply symmetric_group to chains from file
-                    for chain_id, sym_group in file_chain_symmetric_group.items():
-                        chain_mask = new_data.chains["name"] == chain_id
-                        new_data.chains[chain_mask]["symmetric_group"] = sym_group
                     if fuse_info["fuse"]:
                         if fuse_info["target_id"] in total_renaming.keys():
                             fuse_info["target_id"] = total_renaming[
@@ -1720,7 +1698,6 @@ class YamlDesignParser:
 
         # Construct include mask from include entries
         file_chain_to_msa = {}
-        file_chain_symmetric_group = {}
         if isinstance(include, str):
             if include == "all":
                 include_mask = np.ones(num_res)
@@ -1742,8 +1719,6 @@ class YamlDesignParser:
 
                 if "msa" in chain:
                     file_chain_to_msa[chain_id] = chain["msa"]
-                if "symmetric_group" in chain:
-                    file_chain_symmetric_group[chain_id] = chain["symmetric_group"]
                 data_chain = structure.chains[structure.chains["name"] == chain_id]
 
                 c_start = data_chain["res_idx"].item()
@@ -2043,12 +2018,8 @@ class YamlDesignParser:
                         fss_type[indices] = const.ss_type_ids["SHEET"]
 
         # Parse and apply design insertions
-        # First pass: collect insertions and coordinate lengths for symmetric chains
         if design_insertions is not None:
             num_inserted = defaultdict(int)
-            # Group insertions by (symmetric_group, res_index) to coordinate variable lengths
-            symmetric_length_cache = {}  # (sym_group, res_index) -> sampled_length
-
             for list_element in design_insertions:
                 insertion = list_element["insertion"]
                 if "id" not in insertion:
@@ -2062,24 +2033,10 @@ class YamlDesignParser:
                 res_index += num_inserted[chain_id]
                 ss_insert_type = insertion.get("secondary_structure", "UNSPECIFIED")
 
-                num_residues_spec = insertion["num_residues"]
-                num_residues_range = parse_range(num_residues_spec)
-
-                # Check if this chain has a symmetric_group
-                chain_sym_group = file_chain_symmetric_group.get(chain_id, 0)
-
-                # If chain has symmetric_group > 0, coordinate length with other symmetric chains
-                if chain_sym_group > 0:
-                    cache_key = (chain_sym_group, res_index, str(num_residues_spec))
-                    if cache_key in symmetric_length_cache:
-                        num_residues = symmetric_length_cache[cache_key]
-                    else:
-                        num_residues = np.random.choice(num_residues_range).item()
-                        symmetric_length_cache[cache_key] = num_residues
-                else:
-                    num_residues = np.random.choice(num_residues_range).item()
-
                 # We add +1 because the parse_range function is usually used for indexing where we then convert the 1 based inputs to 0 indexing
+                num_residues = insertion["num_residues"]
+                num_residues = parse_range(num_residues)
+                num_residues = np.random.choice(num_residues).item()
                 num_residues += 1
                 num_inserted[chain_id] += num_residues
 
@@ -2213,7 +2170,6 @@ class YamlDesignParser:
             fbind_types,
             fss_type,
             file_chain_to_msa,
-            file_chain_symmetric_group,
             fuse_info,
             extra_mols,
             file_msa_flag,

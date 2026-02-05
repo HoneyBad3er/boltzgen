@@ -1258,7 +1258,6 @@ def mmcif_from_block(  # noqa: C901, PLR0915, PLR0912
                 res_idx,
                 res_num,
                 0,  # cyclic period
-                0,  # symmetric_group (default, can be overridden via YAML)
             )
         )
         chain_to_idx[chain.name] = asym_id

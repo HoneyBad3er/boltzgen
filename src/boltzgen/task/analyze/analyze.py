@@ -104,7 +104,6 @@ class Analyze(Task):
         foldseek_binary: str = "/data/rbg/users/hstark/foldseek/bin/foldseek",
         skip_specific_ids: List[str] = None,
         designfolding_metrics: bool = False,
-        use_design_mask_for_target: bool = False,
     ) -> None:
         """Initialize the task.
 
@@ -153,7 +152,6 @@ class Analyze(Task):
         self.wandb = wandb
         self.slurm = slurm
         self.diversity_subset = diversity_subset
-        self.use_design_mask_for_target = use_design_mask_for_target
 
         # Prevent each worker process from spawning its own multithreaded pools
         torch.set_num_threads(1)
@@ -605,12 +603,7 @@ class Analyze(Task):
 
         design_resolved_mask = design_mask & feat["token_resolved_mask"].bool()
 
-        # For symmetric designs where all chains have designed residues, use design_mask
-        # instead of chain_design_mask so "target" = non-designed residues (not empty)
-        if self.use_design_mask_for_target:
-            target_resolved_mask = (~design_mask) & feat["token_resolved_mask"].bool()
-        else:
-            target_resolved_mask = (~chain_design_mask) & feat["token_resolved_mask"].bool()
+        target_resolved_mask = (~chain_design_mask) & feat["token_resolved_mask"].bool()
         atom_design_resolved_mask = (
             (feat["atom_to_token"].float() @ design_resolved_mask.unsqueeze(-1).float())
             .bool()
