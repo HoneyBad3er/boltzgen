@@ -139,19 +139,19 @@ class ConfidenceModule(nn.Module):
 
             out_dict = {}
             for key in out_dicts[0]:
-                if key != "pair_chains_iptm":
+                if key != "pair_chains_iptm" and key != "chain_pair_ipsae":
                     out_dict[key] = torch.cat([out[key] for out in out_dicts], dim=0)
                 else:
-                    pair_chains_iptm = {}
+                    pair_chains_dict = {}
                     for chain_idx1 in out_dicts[0][key]:
-                        chains_iptm = {}
+                        chains_dict = {}
                         for chain_idx2 in out_dicts[0][key][chain_idx1]:
-                            chains_iptm[chain_idx2] = torch.cat(
+                            chains_dict[chain_idx2] = torch.cat(
                                 [out[key][chain_idx1][chain_idx2] for out in out_dicts],
                                 dim=0,
                             )
-                        pair_chains_iptm[chain_idx1] = chains_iptm
-                    out_dict[key] = pair_chains_iptm
+                        pair_chains_dict[chain_idx1] = chains_dict
+                    out_dict[key] = pair_chains_dict
             return out_dict
 
         s_inputs = self.s_inputs_norm(s_inputs)
@@ -585,6 +585,10 @@ class ConfidenceHeads(nn.Module):
                 design_iiptm,
                 target_ptm,
                 design_ptm,
+                design_ipsae_min,
+                design_to_target_ipsae,
+                target_to_design_ipsae,
+                chain_pair_ipsae
             ) = compute_ptms(pae_logits, x_pred, feats, multiplicity)
             out_dict["ptm"] = ptm
             out_dict["iptm"] = iptm
@@ -596,6 +600,10 @@ class ConfidenceHeads(nn.Module):
             out_dict["design_iiptm"] = design_iiptm
             out_dict["target_ptm"] = target_ptm
             out_dict["design_ptm"] = design_ptm
+            out_dict["design_ipsae_min"] = design_ipsae_min
+            out_dict["design_to_target_ipsae"] = design_to_target_ipsae
+            out_dict["target_to_design_ipsae"] = target_to_design_ipsae
+            out_dict["chain_pair_ipsae"] = chain_pair_ipsae
         except Exception as e:
             print(f"Error in compute_ptms: {e}")
             out_dict["ptm"] = torch.zeros_like(complex_plddt)
@@ -608,5 +616,9 @@ class ConfidenceHeads(nn.Module):
             out_dict["design_iiptm"] = torch.zeros_like(complex_plddt)
             out_dict["target_ptm"] = torch.zeros_like(complex_plddt)
             out_dict["design_ptm"] = torch.zeros_like(complex_plddt)
+            out_dict["design_ipsae_min"] = torch.zeros_like(complex_plddt)
+            out_dict["design_to_target_ipsae"] = torch.zeros_like(complex_plddt)
+            out_dict["target_to_design_ipsae"] = torch.zeros_like(complex_plddt)
+            out_dict["chain_pair_ipsae"] = torch.zeros_like(complex_plddt)
 
         return out_dict

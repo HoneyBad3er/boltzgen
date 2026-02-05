@@ -3472,6 +3472,9 @@ eval_keys_confidence = [
     "target_ptm",
     "design_ptm",
     "ligand_iptm",
+    "design_ipsae_min",
+    "design_to_target_ipsae",
+    "target_to_design_ipsae",
 ]
 
 eval_keys_affinity = [

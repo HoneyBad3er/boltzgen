@@ -1347,6 +1347,16 @@ class Boltz(LightningModule):
                     pred_dict["ligand_iptm"] = out["ligand_iptm"]
                     pred_dict["protein_iptm"] = out["protein_iptm"]
                     pred_dict["pair_chains_iptm"] = out["pair_chains_iptm"]
+                    pred_dict["design_ipsae_min"] = out["design_ipsae_min"]
+                    pred_dict["design_to_target_ipsae"] = out["design_to_target_ipsae"]
+                    pred_dict["target_to_design_ipsae"] = out["target_to_design_ipsae"]
+                
+                # Ensure ipsae is saved even if alpha_pae is 0 (since it's a scalar metric)
+                if "design_ipsae_min" in out:
+                    pred_dict["design_ipsae_min"] = out["design_ipsae_min"]
+                    pred_dict["design_to_target_ipsae"] = out["design_to_target_ipsae"]
+                    pred_dict["target_to_design_ipsae"] = out["target_to_design_ipsae"]
+                    pred_dict["chain_pair_ipsae"] = out.get("chain_pair_ipsae", None)
 
                 if self.affinity_prediction:
                     pred_dict["affinity_pred_value"] = out["affinity_pred_value"]

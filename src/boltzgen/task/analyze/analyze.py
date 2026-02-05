@@ -1090,6 +1090,19 @@ class Analyze(Task):
                 metrics["affinity_probability_binary1>75"] = (
                     metrics["affinity_probability_binary1"] > 0.75
                 )
+        
+        for key in const.eval_keys_confidence:
+            if key in feat:
+                if isinstance(feat[key], torch.Tensor) and feat[key].numel() == 1:
+                    metrics[key] = feat[key].item()
+                elif isinstance(feat[key], (float, int)):
+                    metrics[key] = feat[key]
+
+        if "ipsae" in feat:
+            val = feat["ipsae"].item() if isinstance(feat["ipsae"], torch.Tensor) else feat["ipsae"]
+            metrics["ipsae"] = val
+            if "design_ipsae_min" not in metrics:
+                metrics["design_ipsae_min"] = val
 
         # Write outputs to files and return sample_id for conformation of successful processing
         data = {
