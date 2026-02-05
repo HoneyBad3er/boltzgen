@@ -376,11 +376,11 @@ def compute_ptms(logits, x_preds, feats, multiplicity):
     for idx1 in asym_ids_list:
         pair_ipsae = {}
         for idx2 in asym_ids_list:
-             if idx1 == idx2: continue
-             mask_c1 = (asym_id == idx1).float()
-             mask_c2 = (asym_id == idx2).float()
-             score = compute_ipsae_score(mask_c1, mask_c2, expected_pae)
-             pair_ipsae[idx2] = score
+            if idx1 == idx2: continue
+            mask_c1 = (asym_id == idx1).float()
+            mask_c2 = (asym_id == idx2).float()
+            score = compute_ipsae_score(mask_c1, mask_c2, expected_pae)
+            pair_ipsae[idx2] = score
         chain_pair_ipsae[idx1] = pair_ipsae
 
     return (
