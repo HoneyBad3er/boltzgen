@@ -1098,12 +1098,6 @@ class Analyze(Task):
                 elif isinstance(feat[key], (float, int)):
                     metrics[key] = feat[key]
 
-        if "ipsae" in feat:
-            val = feat["ipsae"].item() if isinstance(feat["ipsae"], torch.Tensor) else feat["ipsae"]
-            metrics["ipsae"] = val
-            if "design_ipsae_min" not in metrics:
-                metrics["design_ipsae_min"] = val
-
         # Write outputs to files and return sample_id for conformation of successful processing
         data = {
             "target_id": target_id,
