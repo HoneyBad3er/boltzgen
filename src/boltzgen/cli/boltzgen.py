@@ -981,6 +981,30 @@ class BinderDesignPipeline:
             )
 
         if args.only_inverse_fold:
+            exclude_residues = []
+            inverse_fold_avoid = (
+                args.inverse_fold_avoid
+                if args.inverse_fold_avoid is not None
+                else (
+                    "C"
+                    if protocol
+                    in [
+                        "peptide-anything",
+                        "nanobody-anything",
+                        "antibody-anything",
+                    ]
+                    else ""
+                )
+            )
+
+            for one_letter_code in inverse_fold_avoid:
+                exclude_residues.append(const.prot_letter_to_token[one_letter_code])
+
+            if len(exclude_residues) > 0:
+                print(
+                    f"Inverse fold will avoid the following residues: {exclude_residues}"
+                )
+            print(f"Inverse-folded designs will be saved to: {output_dir}")
             # Designs from inverse folding
             self.steps.append(
                 PipelineStep(
@@ -991,9 +1015,12 @@ class BinderDesignPipeline:
                         f"data.cfg.yaml_path=[{', '.join(str(s) for s in args.design_spec)}]",
                         f"trainer.devices={devices}",
                         f"data.cfg.multiplicity={getattr(args, 'inverse_fold_num_sequences', 10)}",
+                        f"data.cfg.skip_existing={args.reuse}",
+                        f"data.cfg.output_dir={output_dir}",
                         f"override.use_kernels={use_kernels}",
                         f"checkpoint={get_artifact_path(args, args.inverse_fold_checkpoint)}",
                         f"data.cfg.moldir={moldir}",
+                        f"override.inverse_fold_args.inverse_fold_restriction=[{', '.join(exclude_residues)}]",
                     ]
                     + config_args_by_step.get("inverse_folding", []),
                 )
