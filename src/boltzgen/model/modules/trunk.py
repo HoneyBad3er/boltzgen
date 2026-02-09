@@ -350,7 +350,7 @@ class TemplateModule(nn.Module):
         b_cb_mask = b_cb_mask[..., None]
         b_frame_mask = b_frame_mask[..., None]
 
-        # Compute asym mask, template features only attend within the same chain
+        # Compute visibility mask, template features only attend within the same visibility
         B, T = res_type.shape[:2]  # noqa: N806
         tmlp_pair_mask = (
             visibility_ids[:, :, :, None] == visibility_ids[:, :, None, :]
