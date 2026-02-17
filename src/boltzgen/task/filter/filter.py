@@ -373,6 +373,7 @@ class Filter(Task):
             df["designfolding-filter_rmsd"] = df["designfolding-bb_rmsd"]
         if "min_design_to_target_pae" in df:
             df["neg_min_design_to_target_pae"] = -df["min_design_to_target_pae"]
+
         if "design_hydrophobicity" in df:
             df["neg_design_hydrophobicity"] = -df["design_hydrophobicity"]
         if "design_largest_hydrophobic_patch_refolded" in df:
@@ -699,6 +700,12 @@ class Filter(Task):
             "min_design_to_target_pae"
             if "min_design_to_target_pae" in self.df
             else "min_interaction_pae",
+            "design_ipsae_min"
+            if "design_ipsae_min" in self.df
+            else "design_iptm",
+            "design_to_target_ipsae"
+            if "design_to_target_ipsae" in self.df
+            else "design_iptm",
             "delta_sasa_refolded"
             if self.from_inverse_folded
             else "delta_sasa_original",
@@ -743,6 +750,14 @@ class Filter(Task):
             ),
             (
                 "num_design",
+                "design_ipsae_min" if "design_ipsae_min" in self.df else "design_iptm",
+            ),
+            (
+                "num_design",
+                "design_to_target_ipsae" if "design_to_target_ipsae" in self.df else "design_iptm",
+            ),
+            (
+                "num_design",
                 "design_iiptm" if "design_iiptm" in self.df else "design_iptm",
             ),
             (
@@ -773,6 +788,12 @@ class Filter(Task):
             if "design_to_target_iptm" in self.df
             else "design_iptm",
             "design_iptm",
+            "design_ipsae_min"
+            if "design_ipsae_min" in self.df
+            else "design_iptm",
+            "design_to_target_ipsae"
+            if "design_to_target_ipsae" in self.df
+            else "design_iptm",
             "min_design_to_target_pae"
             if "min_design_to_target_pae" in self.df
             else "min_interaction_pae",
@@ -887,6 +908,14 @@ class Filter(Task):
             [
                 "design_to_target_iptm",
                 "same as design_iptm but for multi-chain designs",
+            ],
+            [
+                "design_ipsae_min",
+                "min interaction pSAE: PAE-based confidence score for interaction (higher = better)",
+            ],
+            [
+                "design_to_target_ipsae",
+                "interaction pSAE between design and target (higher = better)",
             ],
             [
                 "min_design_to_target_pae",
