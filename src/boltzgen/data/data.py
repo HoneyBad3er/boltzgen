@@ -1,4 +1,5 @@
 import json
+import warnings
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import re
@@ -291,6 +292,7 @@ Chain = [
     ("res_idx", np.dtype("i4")),
     ("res_num", np.dtype("i4")),
     ("cyclic_period", np.dtype("i4")),
+    ("symmetric_group", np.dtype("i4")),
 ]
 
 Interface = [
@@ -907,7 +909,7 @@ class Structure(NumpySerializable):
         old_to_new = {old.item(): new for new, old in enumerate(atom_indices)}
         old_to_new_res = {old.item(): new for new, old in enumerate(res_indices)}
 
-        old_to_new_res_chain = {}
+        res_chain_map = {}
 
         for i in range(len(residues)):
             original_atom_range = np.arange(
@@ -966,8 +968,7 @@ class Structure(NumpySerializable):
             chain_start = orig_chain["res_idx"]
             chain_end = orig_chain["res_idx"] + orig_chain["res_num"]
             chain_res_indices = [r for r in res_indices if chain_start <= r < chain_end]
-            chain_res_indices -= orig_chain["res_idx"]
-            old_to_new_res_chain[i] = {
+            res_chain_map[i] = {
                 old.item(): new for new, old in enumerate(chain_res_indices)
             }
 
@@ -996,8 +997,8 @@ class Structure(NumpySerializable):
                     chain_atom_start = chain["atom_idx"]
                     chain_atom_end = chain["atom_idx"] + chain["atom_num"]
                     if chain_atom_start <= res["atom_idx"] < chain_atom_end:
-                        res_idx_item = residues[i]["res_idx"].item()
-                        residues[i]["res_idx"] = old_to_new_res_chain[chain_idx].get(
+                        res_idx_item = res_indices[i]
+                        residues[i]["res_idx"] = res_chain_map[chain_idx].get(
                             res_idx_item
                         )
 
@@ -1216,7 +1217,8 @@ class Structure(NumpySerializable):
                 len(atom_data),
                 0,
                 len(res_data),
-                0,
+                0,  # cyclic_period
+                0,  # symmetric_group
             )
         ]
 
@@ -1523,7 +1525,8 @@ class Structure(NumpySerializable):
                     num_atoms,
                     total_res,
                     len(chain_res_selector),
-                    0,
+                    0,  # cyclic_period
+                    0,  # symmetric_group
                 )
             )
             total_res += len(chain_res_selector)
@@ -1759,6 +1762,18 @@ def biotite_array_from_feat(feat):
         atom_pad_mask & atom_resolved_mask
     ].bool()
 
+    # add chain design mask
+    chain_design_mask = feat["chain_design_mask"].bool()
+    atom_chain_design_mask = (
+        (feat["atom_to_token"].float() @ chain_design_mask.unsqueeze(-1).float())
+        .bool()
+        .squeeze()
+    )
+    atom_array.add_annotation("is_chain_design", bool)
+    atom_array.is_chain_design = atom_chain_design_mask[
+        atom_pad_mask & atom_resolved_mask
+    ].bool()
+
     return atom_array
 
 
@@ -1916,6 +1931,7 @@ class DesignInfo(NumpySerializable):
     res_structure_groups: npt.NDArray[np.int_]
     res_ss_types: npt.NDArray[np.int_]
     res_binding_type: npt.NDArray[np.int_]
+    res_aa_constraint_mask: npt.NDArray[np.float32]  # Shape: (num_residues, 20), 0=allowed, 1=disallowed
 
     @classmethod
     def is_valid(self, info: "DesignInfo") -> bool:
@@ -1925,6 +1941,7 @@ class DesignInfo(NumpySerializable):
             len(info.res_design_mask) == len(info.res_structure_groups)
             and len(info.res_structure_groups) == len(info.res_ss_types)
             and len(info.res_ss_types) == len(info.res_binding_type)
+            and len(info.res_aa_constraint_mask) == len(info.res_design_mask)
         ), (
             "There must be a bug in the code. All residue level design info objects should have the same length."
         )
@@ -1939,6 +1956,22 @@ class DesignInfo(NumpySerializable):
 
         if any(~info.res_design_mask.astype(bool) & (info.res_ss_types != 0)):
             msg = "Misspecified design info. There were residues that have a secondary structure type specified but are not set to be designed."
+            raise ValueError(msg)
+
+        # Validate residue constraints
+        has_constraints = info.res_aa_constraint_mask.any(axis=1)
+        if any(has_constraints & ~info.res_design_mask.astype(bool)):
+            warnings.warn(
+                "Residue constraints specified for non-designed residues "
+                "will be ignored during inverse folding.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+        # Check if any designed position has ALL amino acids blocked
+        all_blocked = info.res_aa_constraint_mask.all(axis=1)
+        if any(all_blocked & info.res_design_mask.astype(bool)):
+            msg = "Invalid residue constraints: some designed positions have all amino acids disallowed."
             raise ValueError(msg)
 
         return True
@@ -2035,11 +2068,13 @@ Token = [
     ("design_mask", np.dtype("?")),
     ("binding_type", np.dtype("i4")),
     ("structure_group", np.dtype("i4")),
+    ("aa_constraint_mask", np.dtype("20f4")),  # Per-residue AA constraints: 20 floats (one per canonical AA)
     ("ccd", np.dtype("5i4")),
     ("target_msa_mask", np.dtype("?")),
     ("design_ss_mask", np.dtype("?")),
     ("feature_asym_id", np.dtype("i4")),
     ("feature_res_idx", np.dtype("i4")),
+    ("symmetric_group", np.dtype("i4")),
 ]
 
 TokenBond = [

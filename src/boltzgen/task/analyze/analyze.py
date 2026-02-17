@@ -104,6 +104,7 @@ class Analyze(Task):
         foldseek_binary: str = "/data/rbg/users/hstark/foldseek/bin/foldseek",
         skip_specific_ids: List[str] = None,
         designfolding_metrics: bool = False,
+        use_design_mask_for_target: bool = False,
     ) -> None:
         """Initialize the task.
 
@@ -152,6 +153,7 @@ class Analyze(Task):
         self.wandb = wandb
         self.slurm = slurm
         self.diversity_subset = diversity_subset
+        self.use_design_mask_for_target = use_design_mask_for_target
 
         # Prevent each worker process from spawning its own multithreaded pools
         torch.set_num_threads(1)
@@ -565,12 +567,50 @@ class Analyze(Task):
             "designed_chain_sequence": design_chain_seq,
         }
 
+        # Add per-chain sequences to csv when designing multiple chains
+        design_token_indices = torch.where(feat["design_mask"].bool() & feat["token_pad_mask"].bool())[0]
+        designed_chain_ids = feat["asym_id"][design_token_indices].unique().tolist()
+        if len(designed_chain_ids) > 1:
+            for chain_id in designed_chain_ids:
+                chain_mask = feat["asym_id"] == chain_id
+
+                # Full chain sequence
+                chain_res_types = res_type_argmax[chain_mask]
+                full_chain_seq = "".join(
+                    [
+                        const.prot_token_to_letter.get(const.tokens[t], "X")
+                        for t in chain_res_types
+                    ]
+                )
+
+                # Designed residues only from this chain
+                design_chain_mask = feat["design_mask"].bool() & feat["token_pad_mask"].bool() & chain_mask
+                design_res_types = res_type_argmax[design_chain_mask]
+                design_seq = "".join(
+                    [
+                        const.prot_token_to_letter.get(const.tokens[t], "X")
+                        for t in design_res_types
+                    ]
+                )
+
+                metrics[f"designed_sequence_{chain_id}"] = design_seq
+                metrics[f"full_sequence_{chain_id}"] = full_chain_seq
+
+
         target_id = re.search(rf"{self.data.cfg.target_id_regex}", sample_id).group(1)
 
         # Get masks
         design_mask = feat["design_mask"].bool()
+        chain_design_mask   = feat["chain_design_mask"].bool() 
+
         design_resolved_mask = design_mask & feat["token_resolved_mask"].bool()
-        target_resolved_mask = ~design_mask & feat["token_resolved_mask"].bool()
+
+        # For symmetric designs where all chains have designed residues, use design_mask
+        # instead of chain_design_mask so "target" = non-designed residues (not empty)
+        if self.use_design_mask_for_target:
+            target_resolved_mask = (~design_mask) & feat["token_resolved_mask"].bool()
+        else:
+            target_resolved_mask = (~chain_design_mask) & feat["token_resolved_mask"].bool()
         atom_design_resolved_mask = (
             (feat["atom_to_token"].float() @ design_resolved_mask.unsqueeze(-1).float())
             .bool()
@@ -584,11 +624,10 @@ class Analyze(Task):
         atom_resolved_mask = feat["atom_resolved_mask"]
         resolved_atoms_design_mask = atom_design_resolved_mask[atom_resolved_mask]
         resolved_atoms_target_mask = atom_target_resolved_mask[atom_resolved_mask]
-        design_mask_for_chain = feat["asym_id"] == design_chain_id
         atom_chain_mask = (
             (
                 feat["atom_to_token"].float()
-                @ design_mask_for_chain.unsqueeze(-1).float()
+                @ chain_design_mask.unsqueeze(-1).float()
             )
             .bool()
             .squeeze()
@@ -669,7 +708,11 @@ class Analyze(Task):
                 delta_sasa_orig,
                 design_sasa_unbound,
                 design_sasa_bound,
-            ) = get_delta_sasa(path, resolved_atoms_target_mask)
+            ) = get_delta_sasa(
+                path,
+                atom_target_mask=resolved_atoms_target_mask,
+                atom_design_mask=resolved_atoms_design_mask,
+            )
             metrics["delta_sasa_original"] = delta_sasa_orig
             metrics["design_sasa_unbound_original"] = design_sasa_unbound
             metrics["design_sasa_bound_original"] = design_sasa_bound
@@ -1039,12 +1082,21 @@ class Analyze(Task):
             if self.delta_sasa_refolded:
                 cif_path_refolded = self.refold_cif_dir / f"{feat['id']}.cif"
 
+                if not cif_path_refolded.exists():
+                    msg = f"Refolded cif path does not exist. This can happen if a process was interrupted between writing the refold .npz file and the refold .cif file. Missing path: {cif_path_refolded}"
+                    print(msg)
+                    return None
+
                 # Compute delta sasa
                 (
                     delta_sasa_refolded,
                     design_sasa_unbound,
                     design_sasa_bound,
-                ) = get_delta_sasa(cif_path_refolded, resolved_atoms_target_mask)
+                ) = get_delta_sasa(
+                    cif_path_refolded,
+                    atom_target_mask=resolved_atoms_target_mask,
+                    atom_design_mask=resolved_atoms_design_mask,
+                )
 
                 metrics["delta_sasa_refolded"] = delta_sasa_refolded
                 metrics["design_sasa_unbound_refolded"] = design_sasa_unbound

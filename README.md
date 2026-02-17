@@ -4,7 +4,8 @@
   <img src="assets/boltzgen.png" alt="BoltzGen logo" width="60%">
 
 [Paper](https://hannes-stark.com/assets/boltzgen.pdf) | 
-[Slack](https://boltz.bio/join-slack) <br> <br>
+[Slack](https://boltz.bio/join-slack) | 
+[Video](https://www.youtube.com/watch?v=9d_QWUUI1Qo) <br> <br>
  ![alt text](assets/cover.png)
 </div>
 
@@ -73,10 +74,10 @@ docker build -t boltzgen .
 # Run an example
 mkdir -p workdir  # output
 mkdir -p cache    # where models will be downloaded to
-docker run --rm --gpus all -v "$(realpath workdir)":/workdir -v "$(realpath cache)":/cache -v "$(realpath example)":/example \
-  boltzgen run /example/vanilla_protein/1g13prot.yaml --output /workdir/test \
-  --protocol protein-anything \
-  --num_designs 2
+docker run --rm --gpus all -v "$(realpath workdir)":/workdir -v "$(realpath cache)":/cache -v "$(realpath example)":/example boltzgen \
+    boltzgen run /example/vanilla_protein/1g13prot.yaml --output /workdir/test \
+ 	--protocol protein-anything \
+  	--num_designs 2
 ```
 
 In the example above, the model weights are downloaded the first time the image is run. To bake the weights into the image at build time, run:
@@ -144,7 +145,7 @@ When the pipeline completes your output directory will have:
   - `/final_designs_metrics_<budget>.csv` — metrics for the selected final set.
   - `/results_overview.pdf` — plots
 
-# Protocols 
+# Protocols
 
 | Protocol (design-target) | Appropriate for                                                           | Major config differences        |
 |--------------------------|---------------------------------------------------------------------------|------------------------|
@@ -153,6 +154,7 @@ When the pipeline completes your output directory will have:
 | protein-small_molecule   | Design proteins to bind small molecules                                | Includes binding affinity prediction. Includes `design folding` step. |
 | antibody-anything        | Design antibody CDRs      | No Cys are generated in inverse folding. No `design folding` step. Don't compute largest hydrophobic patch. |
 | nanobody-anything        | Design nanobody CDRs      | Same settings as antibody-anything |
+| protein-redesign         | Redesign or optimize existing proteins | No `design folding` step. Uses `design_mask` for target/template definition. |
 
 All configuration parameters can be overridden using the `--config` option; see `boltzgen run --help` or the `Advanced Users` section below for details.
 
@@ -182,6 +184,7 @@ We provide many example `.yaml` files in the `example/` directory, including:
 - `example/fab_targets/pdl1.yaml`
 - `example/denovo_zinc_finger_against_dna/zinc_finger.yaml`
 - `example/protein_binding_small_molecule/chorismite.yaml`
+- `example/small_molecule_from_file_and_smiles/4g37.yaml`
 
 Small example of a protein design against a target protein without binding site specified:
 ```yaml
@@ -311,6 +314,33 @@ constraints:
 
 ```
 
+## Symmetric complex design (inverse-folding only)
+
+For symmetric complexes (e.g., homo-dimers), the you can tie sequence generation during inverse folding by specifying the `symmetric_group` for each symmetric chain. The `protein-redesign` protocol allows for scoring complexes without separate binders/targets.
+
+```yaml
+entities:
+  - file:
+      path: symmetric_dimer.cif
+      include:
+        - chain:
+            id: A
+            res_index: 100..300
+            symmetric_group: 1  # Link chains A and B for symmetric sampling
+        - chain:
+            id: B
+            res_index: 100..300
+            symmetric_group: 1  # Same group = same sampled insertion length
+
+      # Mark residues to redesign on both chains
+      design:
+        - chain:
+            id: A
+            res_index: 200..210
+        - chain:
+            id: B
+            res_index: 200..210
+```
 
 # Running only specific pipeline steps
 
@@ -323,6 +353,16 @@ boltzgen run example/cyclotide/3ivq.yaml \
   --protocol peptide-anything \
   --steps design inverse_folding \
   --num_designs 2
+```
+
+If you want to run only the inverse folding and subsequent design evaluation steps (but not the backbone design step), you can also run:
+
+**Run only inverse_folding step:**
+```bash
+boltzgen run example/inverse_folding/1brs.yaml \
+  --output workbench/if-only \
+  --only_inverse_fold \
+  --inverse_fold_num_sequences 2
 ```
 
 **Available steps:**

@@ -279,6 +279,22 @@ def compute_ptms(logits, x_preds, feats, multiplicity):
         dim=1,
     ).values
 
+    # iPTM between designed residues and any token from a different chain
+    design_residue_iptm_mask = (
+        maski[:, :, None]
+        * mask_pad[:, None, :]
+        * mask_pad[:, :, None]
+        * (asym_id[:, None, :] != asym_id[:, :, None])
+        * (
+            is_design_token[:, :, None] + is_design_token[:, None, :]
+        ).clamp(max=1)
+    )
+    design_residue_iptm = torch.max(
+        torch.sum(tm_expected_value * design_residue_iptm_mask, dim=-1)
+        / (torch.sum(design_residue_iptm_mask, dim=-1) + 1e-5),
+        dim=1,
+    ).values
+
     design_ptm_mask = (
         maski[:, :, None]
         * mask_pad[:, None, :]
@@ -394,6 +410,7 @@ def compute_ptms(logits, x_preds, feats, multiplicity):
         protein_iptm,
         chain_pair_iptm,
         design_to_target_iptm,
+        design_residue_iptm,
         design_iptm,
         design_iiptm,
         target_ptm,
