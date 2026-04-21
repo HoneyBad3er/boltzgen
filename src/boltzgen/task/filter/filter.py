@@ -207,6 +207,8 @@ class Filter(Task):
             "plip_hbonds" + ("_refolded" if from_inverse_folded else ""): 2,
             "plip_saltbridge" + ("_refolded" if from_inverse_folded else ""): 2,
             "delta_sasa_refolded" if from_inverse_folded else "delta_sasa_original": 2,
+            # Uncomment for K+ channel binder design (requires sf_distance_refolded: true in analysis.yaml):
+            # "neg_min_cation_to_sf_refolded": 1,
         }
         if use_affinity:
             self.metrics: dict = {
@@ -373,6 +375,10 @@ class Filter(Task):
             df["designfolding-filter_rmsd"] = df["designfolding-bb_rmsd"]
         if "min_design_to_target_pae" in df:
             df["neg_min_design_to_target_pae"] = -df["min_design_to_target_pae"]
+        if "min_cation_to_sf_refolded" in df:
+            df["neg_min_cation_to_sf_refolded"] = -df["min_cation_to_sf_refolded"]
+        if "min_cation_to_sf" in df:
+            df["neg_min_cation_to_sf"] = -df["min_cation_to_sf"]
 
         if "design_hydrophobicity" in df:
             df["neg_design_hydrophobicity"] = -df["design_hydrophobicity"]

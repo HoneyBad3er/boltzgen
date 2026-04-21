@@ -1,0 +1,52 @@
+entities:
+  # Загружаем Kv1.3 из файла 
+  - file:
+      path: Kv13_cut.pdb
+      # Which chain and residues in the .cif file to use as target
+      # Here we include chains A, B, C and D (all residues on each chain)
+      include:
+        - chain:
+            id: A
+        - chain:
+            id: B
+        - chain:
+            id: C
+        - chain:
+            id: D
+
+      # Which regions of the target the design should or should NOT bind to
+      # Here we specify that the design should bind to residues 398-400 on each chain (Kv vestibule)
+      binding_types:
+        - chain:
+            id: A
+            binding: 53..55
+        - chain:
+            id: B
+            binding: 53..55
+        - chain:
+            id: C
+            binding: 53..55
+        - chain:
+            id: D
+            binding: 53..55
+
+  # Specify a designed protein chain
+  # random number between 20 and 40 of designed residues (inclusive)
+  - protein:
+      id: F
+      sequence: 4..6C5C3C8..9C4C1C2..5 
+      # Make the designed protein chain cyclic
+      #cyclic: True
+
+constraints:
+  - bond:
+      atom1: [F, 5, SG]
+      atom2: [F, 24, SG]
+
+  - bond:
+      atom1: [F, 11, SG]
+      atom2: [F, 29, SG]
+
+  - bond:
+      atom1: [F, 15, SG]
+      atom2: [F, 31, SG]

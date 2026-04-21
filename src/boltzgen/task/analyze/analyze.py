@@ -25,6 +25,7 @@ from boltzgen.task.analyze.analyze_utils import (
     get_delta_sasa,
     get_fold_metrics,
     get_motif_set,
+    compute_lys_arg_sf_distance,
     count_noncovalents,
     largest_hydrophobic_patch_area,
     make_histogram,
@@ -105,6 +106,8 @@ class Analyze(Task):
         skip_specific_ids: List[str] = None,
         designfolding_metrics: bool = False,
         use_design_mask_for_target: bool = False,
+        sf_distance_original: bool = False,
+        sf_distance_refolded: bool = False,
     ) -> None:
         """Initialize the task.
 
@@ -154,6 +157,8 @@ class Analyze(Task):
         self.slurm = slurm
         self.diversity_subset = diversity_subset
         self.use_design_mask_for_target = use_design_mask_for_target
+        self.sf_distance_original = sf_distance_original
+        self.sf_distance_refolded = sf_distance_refolded
 
         # Prevent each worker process from spawning its own multithreaded pools
         torch.set_num_threads(1)
@@ -841,6 +846,11 @@ class Analyze(Task):
                     (min_bindsite_design_distances < threshold).float().mean().item()
                 )
 
+        # Pore-axis distance: LYS/ARG to K+ channel selectivity filter (original structure)
+        if self.sf_distance_original:
+            sf_metrics = compute_lys_arg_sf_distance(feat, design_mask, target_resolved_mask)
+            metrics.update(sf_metrics)
+
         # Count free Cysteines
         if self.free_cys:
             cysteine_mask = (
@@ -1114,6 +1124,11 @@ class Analyze(Task):
                     )
                     traceback.print_exc()
                     return None
+
+            # Pore-axis distance: LYS/ARG to K+ channel selectivity filter (refolded complex)
+            if self.sf_distance_refolded:
+                sf_metrics = compute_lys_arg_sf_distance(feat_out, design_mask, target_resolved_mask)
+                metrics.update({f"{k}_refolded": v for k, v in sf_metrics.items()})
 
             bb_out = feat_out["coords"][bb_design_mask].reshape(-1, 4, 3)
             ca_coords_refolded = bb_out[:, 1, :].cpu()

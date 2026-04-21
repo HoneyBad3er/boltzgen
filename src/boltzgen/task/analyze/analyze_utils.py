@@ -227,6 +227,84 @@ def count_noncovalents(feat):
     return metrics
 
 
+def compute_lys_arg_sf_distance(feat, design_mask, target_resolved_mask):
+    """
+    Compute distance from LYS Nζ / ARG NH to K+ channel selectivity filter pore axis.
+
+    Selectivity filter is located by finding the conserved GLY-TYR-GLY tripeptide
+    in target chains. The pore axis is defined as the centroid of the backbone
+    carbonyl O atoms of the TYR residue in each chain's GYG pattern (S1 binding site).
+
+    Returns a dict with keys:
+        lys_to_sf_centroid  – min over all LYS Nζ atoms to SF centroid (Å)
+        arg_to_sf_centroid  – min over all ARG NH1/NH2 atoms to SF centroid (Å)
+        min_cation_to_sf    – min of the above two (the primary ranking metric)
+    Missing keys = GYG not found in target, or no LYS/ARG in design.
+    """
+    ba = biotite_array_from_feat(feat)
+
+    # Design atoms: LYS Nζ and ARG guanidinium (NH1 + NH2)
+    design_ba = ba[ba.is_design]
+    lys_nz = design_ba[(design_ba.res_name == "LYS") & (design_ba.atom_name == "NZ")]
+    arg_nh = design_ba[
+        np.isin(design_ba.res_name, ["ARG"])
+        & np.isin(design_ba.atom_name, ["NH1", "NH2"])
+    ]
+
+    # Target atoms: backbone carbonyl O of TYR in GYG motif (one per chain)
+    target_ba = ba[~ba.is_chain_design]
+
+    tyr_o_coords = []
+    for chain_id in np.unique(target_ba.chain_id):
+        chain = target_ba[target_ba.chain_id == chain_id]
+
+        # Deduplicate residues preserving order
+        seen, unique_res = set(), []
+        for rid, rname in zip(chain.res_id, chain.res_name):
+            if rid not in seen:
+                seen.add(rid)
+                unique_res.append((rid, rname))
+
+        for i in range(len(unique_res) - 2):
+            if (
+                unique_res[i][1] == "GLY"
+                and unique_res[i + 1][1] == "TYR"
+                and unique_res[i + 2][1] == "GLY"
+            ):
+                tyr_rid = unique_res[i + 1][0]
+                tyr_o = chain[(chain.res_id == tyr_rid) & (chain.atom_name == "O")]
+                if len(tyr_o) > 0:
+                    tyr_o_coords.append(tyr_o.coord[0])
+                break  # first GYG per chain only
+
+    if not tyr_o_coords:
+        return {}  # no K+ selectivity filter found in target chains
+
+    # Pore axis = centroid of the TYR carbonyl oxygens (one per chain = 4 for Kv1.x)
+    sf_centroid = np.mean(tyr_o_coords, axis=0, keepdims=True)  # (1, 3)
+    sf_t = torch.from_numpy(sf_centroid).float()
+
+    out = {}
+    cation_dists = []
+
+    if len(lys_nz) > 0:
+        lys_t = torch.from_numpy(lys_nz.coord).float()
+        d = torch.cdist(lys_t, sf_t).min().item()
+        out["lys_to_sf_centroid"] = d
+        cation_dists.append(d)
+
+    if len(arg_nh) > 0:
+        arg_t = torch.from_numpy(arg_nh.coord).float()
+        d = torch.cdist(arg_t, sf_t).min().item()
+        out["arg_to_sf_centroid"] = d
+        cation_dists.append(d)
+
+    if cation_dists:
+        out["min_cation_to_sf"] = min(cation_dists)
+
+    return out
+
+
 def tm_score(coords1, coords2):
     num_atoms1 = coords1.shape[0]
     num_atoms2 = coords2.shape[0]

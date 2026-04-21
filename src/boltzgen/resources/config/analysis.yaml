@@ -21,6 +21,10 @@ liability_analysis: true
 liability_modality: peptide
 liability_peptide_type: linear
 
+# K+ channel selectivity filter distance (LYS Nζ / ARG NH to GYG pore-axis centroid)
+sf_distance_original: false
+sf_distance_refolded: false
+
 # Uncommon metrics
 diversity_original: false
 diversity_refolded: false
